@@ -1,28 +1,32 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setupNotifications, scheduleDeadlineReminder } from "../utils/notifications";
+import { scheduleDeadlineReminder } from "../utils/notifications";
+import { api, handleApiError } from "../utils/api";
+import { Alert } from "react-native";
 
 interface Todo {
-  id: string;
+  _id: string;
   text: string;
   createdBy: string;
   createdAt: string;
   completed: boolean;
-  date: string; // YYYY-MM-DD format
+  date: string;
 }
 
 interface AppContextType {
   username: string | null;
   setUsername: (name: string) => void;
   todos: Todo[];
-  addTodo: (text: string) => void;
+  addTodo: (text: string) => Promise<void>;
   deadline: string;
   setDeadline: (time: string) => void;
   isAfterDeadline: () => boolean;
-  toggleTodoComplete: (todoId: string) => void;
+  toggleTodoComplete: (todoId: string) => Promise<void>;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
-  getTodosByDate: (date: string) => Todo[];
+  deleteTodo: (todoId: string) => Promise<void>;
+  updateTodo: (todoId: string, text: string) => Promise<void>;
+  refreshTodos: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -30,31 +34,41 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [deadline, setDeadlineState] = useState<string>("18:00");
+  const [deadline, setDeadlineState] = useState<string>("18:00"); // Default deadline 6 PM
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
-    // Load username and todos from storage on app start
     loadInitialData();
-    // Set up notifications
-    setupNotifications();
   }, []);
+
+  useEffect(() => {
+    refreshTodos();
+  }, [selectedDate]);
 
   const loadInitialData = async () => {
     try {
       const storedUsername = await AsyncStorage.getItem("username");
-      const storedTodos = await AsyncStorage.getItem("todos");
       const storedDeadline = await AsyncStorage.getItem("deadline");
 
       if (storedUsername) setUsernameState(storedUsername);
-      if (storedTodos) setTodos(JSON.parse(storedTodos));
       if (storedDeadline) {
         setDeadlineState(storedDeadline);
-        // Schedule reminder for the stored deadline
         await scheduleDeadlineReminder(storedDeadline);
       }
     } catch (error) {
       console.error("Error loading data:", error);
+      Alert.alert("Error", "Failed to load saved data");
+    }
+  };
+
+  const refreshTodos = async () => {
+    try {
+      const data = await api.todos.list(selectedDate);
+      console.log("data", data);
+      setTodos(data);
+    } catch (error) {
+      handleApiError(error);
+      Alert.alert("Error", "Failed to fetch todos");
     }
   };
 
@@ -64,6 +78,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUsernameState(name);
     } catch (error) {
       console.error("Error saving username:", error);
+      Alert.alert("Error", "Failed to save username");
     }
   };
 
@@ -74,6 +89,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await scheduleDeadlineReminder(time);
     } catch (error) {
       console.error("Error saving deadline:", error);
+      Alert.alert("Error", "Failed to save deadline");
     }
   };
 
@@ -84,7 +100,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (selectedDate > today) return false;
     if (selectedDate < today) return true;
 
-    // For today, check the time
     const [hours, minutes] = deadline.split(":").map(Number);
     const deadlineTime = new Date(now);
     deadlineTime.setHours(hours, minutes, 0);
@@ -93,38 +108,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addTodo = async (text: string) => {
     try {
-      const newTodo: Todo = {
-        id: Date.now().toString(),
+      const targetDate =
+        isAfterDeadline() && selectedDate === new Date().toISOString().split("T")[0]
+          ? new Date(Date.now() + 86400000).toISOString().split("T")[0] // next day
+          : selectedDate;
+
+      await api.todos.create({
         text,
         createdBy: username || "Anonymous",
-        createdAt: new Date().toISOString(),
-        completed: false,
-        date:
-          isAfterDeadline() && selectedDate === new Date().toISOString().split("T")[0]
-            ? new Date(Date.now() + 86400000).toISOString().split("T")[0] // next day if current date and after deadline
-            : selectedDate, // selected date
-      };
-
-      const updatedTodos = [...todos, newTodo];
-      await AsyncStorage.setItem("todos", JSON.stringify(updatedTodos));
-      setTodos(updatedTodos);
+        date: targetDate,
+      });
+      await refreshTodos();
     } catch (error) {
-      console.error("Error adding todo:", error);
+      handleApiError(error);
+      Alert.alert("Error", "Failed to add todo");
     }
   };
 
   const toggleTodoComplete = async (todoId: string) => {
     try {
-      const updatedTodos = todos.map((todo) => (todo.id === todoId ? { ...todo, completed: !todo.completed } : todo));
-      await AsyncStorage.setItem("todos", JSON.stringify(updatedTodos));
-      setTodos(updatedTodos);
+      const todo = todos.find((t) => t._id === todoId);
+      if (!todo) return;
+
+      await api.todos.update(todoId, {
+        ...todo,
+        completed: !todo.completed,
+      });
+      await refreshTodos();
     } catch (error) {
-      console.error("Error toggling todo:", error);
+      handleApiError(error);
+      Alert.alert("Error", "Failed to update todo");
     }
   };
 
-  const getTodosByDate = (date: string) => {
-    return todos.filter((todo) => todo.date === date);
+  const updateTodo = async (todoId: string, text: string) => {
+    try {
+      const todo = todos.find((t) => t._id === todoId);
+      if (!todo) return;
+
+      await api.todos.update(todoId, {
+        ...todo,
+        text,
+      });
+      await refreshTodos();
+    } catch (error) {
+      handleApiError(error);
+      Alert.alert("Error", "Failed to update todo");
+    }
+  };
+
+  const deleteTodo = async (todoId: string) => {
+    try {
+      await api.todos.delete(todoId);
+      await refreshTodos();
+    } catch (error) {
+      handleApiError(error);
+      Alert.alert("Error", "Failed to delete todo");
+    }
   };
 
   const value = {
@@ -138,7 +178,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleTodoComplete,
     selectedDate,
     setSelectedDate,
-    getTodosByDate,
+    deleteTodo,
+    updateTodo,
+    refreshTodos,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

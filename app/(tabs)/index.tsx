@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Pressable, Alert } from "react-native";
 import { useApp } from "../../context/AppContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { format, formatDistanceToNow } from "date-fns";
@@ -16,18 +16,20 @@ export default function TodoScreen() {
     toggleTodoComplete,
     selectedDate,
     setSelectedDate,
-    getTodosByDate,
+    deleteTodo,
+    updateTodo,
   } = useApp();
 
   const [newTodo, setNewTodo] = useState("");
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
   const [tempDeadline, setTempDeadline] = useState(deadline);
+  const [editingTodo, setEditingTodo] = useState<{ _id: string; text: string } | null>(null);
 
   const handleAddTodo = () => {
     if (newTodo.trim()) {
       const today = new Date().toISOString().split("T")[0];
       if (isAfterDeadline() && selectedDate === today) {
-        alert("Deadline passed! This todo will be added for tomorrow.");
+        Alert.alert("Deadline passed!", "This todo will be added for tomorrow.");
       }
       addTodo(newTodo.trim());
       setNewTodo("");
@@ -40,8 +42,26 @@ export default function TodoScreen() {
       setDeadline(tempDeadline);
       setIsEditingDeadline(false);
     } else {
-      alert("Please enter a valid time in HH:mm format");
+      Alert.alert("Invalid Time", "Please enter a valid time in HH:mm format");
     }
+  };
+
+  const handleEditTodo = (todo: { _id: string; text: string }) => {
+    setEditingTodo(todo);
+  };
+
+  const handleUpdateTodo = () => {
+    if (editingTodo && editingTodo.text.trim()) {
+      updateTodo(editingTodo._id, editingTodo.text);
+      setEditingTodo(null);
+    }
+  };
+
+  const handleDeleteTodo = (todoId: string) => {
+    Alert.alert("Delete Todo", "Are you sure you want to delete this todo?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteTodo(todoId) },
+    ]);
   };
 
   const changeDate = (days: number) => {
@@ -110,21 +130,47 @@ export default function TodoScreen() {
       </View>
 
       <FlatList
-        data={getTodosByDate(selectedDate)}
-        keyExtractor={(item) => item.id}
+        data={todos}
+        keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <Pressable onPress={() => toggleTodoComplete(item.id)} style={styles.todoItem}>
+          <Pressable onPress={() => toggleTodoComplete(item._id)} style={styles.todoItem}>
             <View style={styles.todoLeft}>
               <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
                 {item.completed && <FontAwesome name="check" size={12} color="#fff" />}
               </View>
-              <View>
-                <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
-                <Text style={styles.todoMeta}>
-                  <Text style={styles.todoMetaBold}>{item.createdBy}</Text> •{" "}
-                  <Text style={styles.todoMetaBold}>{formatTime(item.createdAt)}</Text>
-                </Text>
+              <View style={styles.todoContent}>
+                {editingTodo?._id === item._id ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={styles.editInput}
+                      value={editingTodo?.text}
+                      onChangeText={(text) => setEditingTodo({ ...editingTodo, text })}
+                      autoFocus
+                      onSubmitEditing={handleUpdateTodo}
+                    />
+                    <TouchableOpacity onPress={handleUpdateTodo} style={styles.editButton}>
+                      <Text style={styles.editButtonText}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
+                    <Text style={styles.todoMeta}>
+                      <Text style={styles.todoMetaBold}>
+                        {item?.createdBy} • {formatTime(item.createdAt)}
+                      </Text>
+                    </Text>
+                  </>
+                )}
               </View>
+            </View>
+            <View style={styles.todoActions}>
+              <TouchableOpacity onPress={() => handleEditTodo(item)} style={styles.actionButton}>
+                <FontAwesome name="pencil" size={16} color="#007AFF" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteTodo(item._id)} style={styles.actionButton}>
+                <FontAwesome name="trash" size={16} color="#FF3B30" />
+              </TouchableOpacity>
             </View>
           </Pressable>
         )}
@@ -228,10 +274,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   todoLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   checkbox: {
     width: 20,
@@ -246,6 +296,9 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: "#007AFF",
   },
+  todoContent: {
+    flex: 1,
+  },
   todoText: {
     fontSize: 16,
     marginBottom: 5,
@@ -259,5 +312,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     fontFamily: Fonts.regular,
+  },
+  todoActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  editContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  editInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 8,
+    marginRight: 10,
+    borderRadius: 5,
+    fontFamily: Fonts.regular,
+  },
+  editButton: {
+    backgroundColor: "#007AFF",
+    padding: 8,
+    borderRadius: 5,
+  },
+  editButtonText: {
+    color: "#fff",
+    fontFamily: Fonts.medium,
   },
 });
