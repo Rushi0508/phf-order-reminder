@@ -1,7 +1,17 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Pressable, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useApp } from "../../context/AppContext";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, MaterialCommunityIcons } from "@expo/vector-icons";
 import { format, formatDistanceToNow } from "date-fns";
 import { Fonts } from "../../constants/Fonts";
 
@@ -18,6 +28,7 @@ export default function TodoScreen() {
     setSelectedDate,
     deleteTodo,
     updateTodo,
+    isFetching,
   } = useApp();
 
   const [newTodo, setNewTodo] = useState("");
@@ -79,6 +90,10 @@ export default function TodoScreen() {
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
 
+  useEffect(() => {
+    setTempDeadline(deadline);
+  }, [deadline]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -129,57 +144,95 @@ export default function TodoScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={todos}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => toggleTodoComplete(item._id)} style={styles.todoItem}>
-            <View style={styles.todoLeft}>
-              <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
-                {item.completed && <FontAwesome name="check" size={12} color="#fff" />}
-              </View>
-              <View style={styles.todoContent}>
-                {editingTodo?._id === item._id ? (
-                  <View style={styles.editContainer}>
-                    <TextInput
-                      style={styles.editInput}
-                      value={editingTodo?.text}
-                      onChangeText={(text) => setEditingTodo({ ...editingTodo, text })}
-                      autoFocus
-                      onSubmitEditing={handleUpdateTodo}
-                    />
-                    <TouchableOpacity onPress={handleUpdateTodo} style={styles.editButton}>
-                      <Text style={styles.editButtonText}>Save</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
-                    <Text style={styles.todoMeta}>
-                      <Text style={styles.todoMetaBold}>
-                        {item?.createdBy} • {formatTime(item.createdAt)}
+      {isFetching ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading your orders...</Text>
+        </View>
+      ) : todos.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <MaterialCommunityIcons name="clipboard-text-outline" size={80} color="#007AFF" />
+          <Text style={styles.emptyTitle}>No Orders Yet!</Text>
+          <Text style={styles.emptySubtitle}>Add your first order using the input above</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={todos}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => toggleTodoComplete(item._id)} style={styles.todoItem}>
+              <View style={styles.todoLeft}>
+                <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+                  {item.completed && <FontAwesome name="check" size={12} color="#fff" />}
+                </View>
+                <View style={styles.todoContent}>
+                  {editingTodo?._id === item._id ? (
+                    <View style={styles.editContainer}>
+                      <TextInput
+                        style={styles.editInput}
+                        value={editingTodo?.text}
+                        onChangeText={(text) => setEditingTodo({ ...editingTodo, text })}
+                        autoFocus
+                        onSubmitEditing={handleUpdateTodo}
+                      />
+                      <TouchableOpacity onPress={handleUpdateTodo} style={styles.editButton}>
+                        <Text style={styles.editButtonText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
+                      <Text style={styles.todoMeta}>
+                        <Text style={styles.todoMetaBold}>
+                          {item?.createdBy} • {formatTime(item.createdAt)}
+                        </Text>
                       </Text>
-                    </Text>
-                  </>
-                )}
+                    </>
+                  )}
+                </View>
               </View>
-            </View>
-            <View style={styles.todoActions}>
-              <TouchableOpacity onPress={() => handleEditTodo(item)} style={styles.actionButton}>
-                <FontAwesome name="pencil" size={16} color="#007AFF" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteTodo(item._id)} style={styles.actionButton}>
-                <FontAwesome name="trash" size={16} color="#FF3B30" />
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        )}
-      />
+              <View style={styles.todoActions}>
+                <TouchableOpacity onPress={() => handleEditTodo(item)} style={styles.actionButton}>
+                  <FontAwesome name="pencil" size={16} color="#007AFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteTodo(item._id)} style={styles.actionButton}>
+                  <FontAwesome name="trash" size={16} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    color: "#666",
+  },
+  emptyTitle: {
+    marginTop: 16,
+    fontSize: 20,
+    fontFamily: Fonts.bold,
+    color: "#333",
+  },
+  emptySubtitle: {
+    marginTop: 8,
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: "#666",
+    textAlign: "center",
+  },
   container: {
     flex: 1,
     padding: 20,

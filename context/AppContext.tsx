@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { scheduleDeadlineReminder } from "../utils/notifications";
 import { api, handleApiError } from "../utils/api";
 import { Alert } from "react-native";
 
@@ -27,6 +26,7 @@ interface AppContextType {
   deleteTodo: (todoId: string) => Promise<void>;
   updateTodo: (todoId: string, text: string) => Promise<void>;
   refreshTodos: () => Promise<void>;
+  isFetching: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -34,6 +34,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const [deadline, setDeadlineState] = useState<string>("18:00"); // Default deadline 6 PM
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
@@ -53,7 +54,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (storedUsername) setUsernameState(storedUsername);
       if (storedDeadline) {
         setDeadlineState(storedDeadline);
-        await scheduleDeadlineReminder(storedDeadline);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -63,12 +63,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTodos = async () => {
     try {
+      setIsFetching(true);
       const data = await api.todos.list(selectedDate);
-      console.log("data", data);
       setTodos(data);
     } catch (error) {
       handleApiError(error);
       Alert.alert("Error", "Failed to fetch todos");
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -86,7 +88,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.metadata.setDeadline(time);
       setDeadlineState(time);
-      await scheduleDeadlineReminder(time);
     } catch (error) {
       handleApiError(error);
       Alert.alert("Error", "Failed to save deadline");
@@ -181,6 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTodo,
     updateTodo,
     refreshTodos,
+    isFetching,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
