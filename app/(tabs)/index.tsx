@@ -1,74 +1,251 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Pressable } from "react-native";
+import { useApp } from "../../context/AppContext";
+import { FontAwesome } from "@expo/vector-icons";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function TodoScreen() {
+  const {
+    username,
+    todos,
+    addTodo,
+    deadline,
+    setDeadline,
+    isAfterDeadline,
+    toggleTodoComplete,
+    selectedDate,
+    setSelectedDate,
+    getTodosByDate,
+  } = useApp();
 
-export default function HomeScreen() {
+  const [newTodo, setNewTodo] = useState("");
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+  const [tempDeadline, setTempDeadline] = useState(deadline);
+
+  const handleAddTodo = () => {
+    if (newTodo.trim()) {
+      const today = new Date().toISOString().split("T")[0];
+      if (isAfterDeadline() && selectedDate === today) {
+        alert("Deadline passed! This todo will be added for tomorrow.");
+      }
+      addTodo(newTodo.trim());
+      setNewTodo("");
+    }
+  };
+
+  const handleDeadlineSubmit = () => {
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (timeRegex.test(tempDeadline)) {
+      setDeadline(tempDeadline);
+      setIsEditingDeadline(false);
+    } else {
+      alert("Please enter a valid time in HH:mm format");
+    }
+  };
+
+  const changeDate = (days: number) => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + days);
+    setSelectedDate(date.toISOString().split("T")[0]);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Welcome, {username}!</Text>
+        <View style={styles.deadlineContainer}>
+          <Text style={styles.deadlineLabel}>Today's Deadline: </Text>
+          {isEditingDeadline ? (
+            <View style={styles.deadlineInputContainer}>
+              <TextInput
+                style={styles.deadlineInput}
+                value={tempDeadline}
+                onChangeText={setTempDeadline}
+                placeholder="HH:mm"
+                keyboardType="numbers-and-punctuation"
+              />
+              <TouchableOpacity onPress={handleDeadlineSubmit} style={styles.deadlineButton}>
+                <Text style={styles.buttonText}>Set</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => setIsEditingDeadline(true)}>
+              <Text style={styles.deadlineTime}>{deadline}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.dateNavigation}>
+          <TouchableOpacity onPress={() => changeDate(-1)} style={styles.dateButton}>
+            <FontAwesome name="chevron-left" size={16} color="#007AFF" />
+          </TouchableOpacity>
+          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+          <TouchableOpacity onPress={() => changeDate(1)} style={styles.dateButton}>
+            <FontAwesome name="chevron-right" size={16} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={newTodo}
+          onChangeText={setNewTodo}
+          placeholder="Add a new todo..."
+          onSubmitEditing={handleAddTodo}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <TouchableOpacity onPress={handleAddTodo} style={styles.addButton}>
+          <Text style={styles.addButtonText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={getTodosByDate(selectedDate)}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => toggleTodoComplete(item.id)} style={styles.todoItem}>
+            <View style={styles.todoLeft}>
+              <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+                {item.completed && <FontAwesome name="check" size={12} color="#fff" />}
+              </View>
+              <View>
+                <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
+                <Text style={styles.todoMeta}>
+                  Added by {item.createdBy} at {new Date(item.createdAt).toLocaleTimeString()}
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  header: {
+    marginBottom: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  deadlineContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  deadlineLabel: {
+    fontSize: 16,
+  },
+  deadlineTime: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#007AFF",
+  },
+  deadlineInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  deadlineInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 5,
+    width: 80,
+    marginRight: 10,
+    borderRadius: 5,
+  },
+  deadlineButton: {
+    padding: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: "#fff",
+  },
+  dateNavigation: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  dateButton: {
+    padding: 10,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginHorizontal: 20,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginRight: 10,
+    borderRadius: 5,
+  },
+  addButton: {
+    backgroundColor: "#007AFF",
+    padding: 10,
+    borderRadius: 5,
+    justifyContent: "center",
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  todoItem: {
+    backgroundColor: "#f8f8f8",
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  todoLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#007AFF",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#007AFF",
+  },
+  todoText: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  todoTextCompleted: {
+    textDecorationLine: "line-through",
+    color: "#666",
+  },
+  todoMeta: {
+    fontSize: 12,
+    color: "#666",
   },
 });
