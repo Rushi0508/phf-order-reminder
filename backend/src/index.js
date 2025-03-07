@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const todoRoutes = require("./routes/todos");
+const metadataRoutes = require("./routes/metadata");
 
 // Load env vars
 dotenv.config();
@@ -22,6 +23,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api", todoRoutes);
+app.use("/api/metadata", metadataRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -48,7 +48,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadInitialData = async () => {
     try {
       const storedUsername = await AsyncStorage.getItem("username");
-      const storedDeadline = await AsyncStorage.getItem("deadline");
+      const { deadline: storedDeadline } = await api.metadata.getDeadline();
 
       if (storedUsername) setUsernameState(storedUsername);
       if (storedDeadline) {
@@ -84,11 +84,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setDeadline = async (time: string) => {
     try {
-      await AsyncStorage.setItem("deadline", time);
+      await api.metadata.setDeadline(time);
       setDeadlineState(time);
       await scheduleDeadlineReminder(time);
     } catch (error) {
-      console.error("Error saving deadline:", error);
+      handleApiError(error);
       Alert.alert("Error", "Failed to save deadline");
     }
   };

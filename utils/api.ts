@@ -1,5 +1,16 @@
-const API_URL = "http://192.168.1.24:3001/api";
+const API_URL = "https://phf-order-reminder.vercel.app/api";
 export const api = {
+  metadata: {
+    getDeadline: () => fetch(`${API_URL}/metadata/deadline`).then((res) => res.json()),
+    setDeadline: (deadline: string) =>
+      fetch(`${API_URL}/metadata/deadline`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ deadline }),
+      }).then((res) => res.json()),
+  },
   todos: {
     list: (date: string) => {
       return fetch(`${API_URL}/todos?date=${date}`).then((res) => res.json());
@@ -11,7 +22,9 @@ export const api = {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
-      }).then((res) => res.json()),
+      }).then((res) => {
+        return res.json();
+      }),
     update: (id: string, data: any) =>
       fetch(`${API_URL}/todo/${id}`, {
         method: "PUT",
