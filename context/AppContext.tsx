@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setupNotifications, scheduleDeadlineReminder } from "../utils/notifications";
 
 interface Todo {
   id: string;
@@ -29,12 +30,14 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [deadline, setDeadlineState] = useState<string>("18:00"); // Default deadline 6 PM
+  const [deadline, setDeadlineState] = useState<string>("18:00");
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
     // Load username and todos from storage on app start
     loadInitialData();
+    // Set up notifications
+    setupNotifications();
   }, []);
 
   const loadInitialData = async () => {
@@ -45,7 +48,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (storedUsername) setUsernameState(storedUsername);
       if (storedTodos) setTodos(JSON.parse(storedTodos));
-      if (storedDeadline) setDeadlineState(storedDeadline);
+      if (storedDeadline) {
+        setDeadlineState(storedDeadline);
+        // Schedule reminder for the stored deadline
+        await scheduleDeadlineReminder(storedDeadline);
+      }
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -64,6 +71,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem("deadline", time);
       setDeadlineState(time);
+      await scheduleDeadlineReminder(time);
     } catch (error) {
       console.error("Error saving deadline:", error);
     }

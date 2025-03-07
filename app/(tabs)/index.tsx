@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Pressable } from "react-native";
 import { useApp } from "../../context/AppContext";
 import { FontAwesome } from "@expo/vector-icons";
+import { format, formatDistanceToNow } from "date-fns";
+import { Fonts } from "../../constants/Fonts";
 
 export default function TodoScreen() {
   const {
@@ -50,11 +52,11 @@ export default function TodoScreen() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    return format(date, "EEE, MMM d");
+  };
+
+  const formatTime = (dateString: string) => {
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
 
   return (
@@ -78,7 +80,7 @@ export default function TodoScreen() {
             </View>
           ) : (
             <TouchableOpacity onPress={() => setIsEditingDeadline(true)}>
-              <Text style={styles.deadlineTime}>{deadline}</Text>
+              <Text style={styles.deadlineTime}>{format(new Date(`2025-03-07T${deadline}:00`), "hh:mm a")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -119,7 +121,8 @@ export default function TodoScreen() {
               <View>
                 <Text style={[styles.todoText, item.completed && styles.todoTextCompleted]}>{item.text}</Text>
                 <Text style={styles.todoMeta}>
-                  Added by {item.createdBy} at {new Date(item.createdAt).toLocaleTimeString()}
+                  <Text style={styles.todoMetaBold}>{item.createdBy}</Text> •{" "}
+                  <Text style={styles.todoMetaBold}>{formatTime(item.createdAt)}</Text>
                 </Text>
               </View>
             </View>
@@ -136,12 +139,15 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#fff",
   },
+  todoMetaBold: {
+    fontFamily: Fonts.semiBold,
+  },
   header: {
     marginBottom: 20,
   },
   welcomeText: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontFamily: Fonts.bold,
     marginBottom: 10,
   },
   deadlineContainer: {
@@ -151,10 +157,11 @@ const styles = StyleSheet.create({
   },
   deadlineLabel: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   deadlineTime: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: Fonts.semiBold,
     color: "#007AFF",
   },
   deadlineInputContainer: {
@@ -168,6 +175,7 @@ const styles = StyleSheet.create({
     width: 80,
     marginRight: 10,
     borderRadius: 5,
+    fontFamily: Fonts.regular,
   },
   deadlineButton: {
     padding: 8,
@@ -176,6 +184,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
+    fontFamily: Fonts.medium,
   },
   dateNavigation: {
     flexDirection: "row",
@@ -188,7 +197,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 16,
-    fontWeight: "500",
+    fontFamily: Fonts.medium,
     marginHorizontal: 20,
   },
   inputContainer: {
@@ -202,6 +211,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginRight: 10,
     borderRadius: 5,
+    fontFamily: Fonts.regular,
   },
   addButton: {
     backgroundColor: "#007AFF",
@@ -211,7 +221,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: "#fff",
-    fontWeight: "bold",
+    fontFamily: Fonts.semiBold,
   },
   todoItem: {
     backgroundColor: "#f8f8f8",
@@ -239,6 +249,7 @@ const styles = StyleSheet.create({
   todoText: {
     fontSize: 16,
     marginBottom: 5,
+    fontFamily: Fonts.regular,
   },
   todoTextCompleted: {
     textDecorationLine: "line-through",
@@ -247,5 +258,6 @@ const styles = StyleSheet.create({
   todoMeta: {
     fontSize: 12,
     color: "#666",
+    fontFamily: Fonts.regular,
   },
 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useApp } from "../context/AppContext";
+import { Fonts } from "../constants/Fonts";
 
 export default function NameScreen() {
   const [name, setName] = useState("");
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontFamily: Fonts.bold,
     textAlign: "center",
     marginBottom: 10,
   },
@@ -62,6 +63,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#666",
     marginBottom: 30,
+    fontFamily: Fonts.regular,
   },
   input: {
     borderWidth: 1,
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     fontSize: 16,
     marginBottom: 20,
+    fontFamily: Fonts.regular,
   },
   button: {
     backgroundColor: "#007AFF",
@@ -80,6 +83,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: Fonts.semiBold,
   },
 });
